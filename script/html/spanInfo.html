@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Number Frequency Chart</title>
+  <style>
+    .chart-container {
+      margin-bottom: 100px;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div class="chart-container">
+  <canvas id="lineChart" width="400" height="100"></canvas>
+</div>
+<div class="chart-container">
+  <canvas id="barChart" width="400" height="100"></canvas>
+</div>
+
+<script>
+  var lineCtx = document.getElementById('lineChart').getContext('2d');
+  var lineData = {
+    labels: {{ .Accumulate.Labels }},
+    datasets: [{
+      label: 'span info frequency accumulate',
+      data: {{ .Accumulate.Data }},
+      borderColor: 'rgb(75, 192, 192)',
+          tension: 0.1
+    }]
+  };
+  var myChart = new Chart(lineCtx, {
+    type: 'line',
+    data: lineData,
+  });
+
+  var barCtx = document.getElementById('barChart').getContext('2d');
+  var barData = {
+    labels: {{.TopKDuration.Labels}},
+    datasets: [{
+      label: "topk duration",
+      data: {{.TopKDuration.Data}},
+      backgroundColor: 'rgb(54, 162, 235)',
+    }]
+  };
+  new Chart(barCtx, {
+    type: 'bar',
+    data: barData,
+  });
+
+</script>
+</body>
+</html>
