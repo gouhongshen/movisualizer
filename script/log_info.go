@@ -12,6 +12,7 @@ import (
 	"os"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 	_type "visualization/type"
@@ -39,6 +40,17 @@ type LogInfo struct {
 		}
 		S3Visit struct {
 			FromDN, FromCN S3Stats
+		}
+		S3VisitDetail struct {
+			S3Put struct {
+				XLabels   []string
+				EntryNums []float64
+				DataLens  []float64
+			}
+			S3Get struct {
+				Labels  []string
+				GetNums []float64
+			}
 		}
 	}
 }
@@ -119,6 +131,7 @@ func (l *LogInfo) visualize(w http.ResponseWriter, req *http.Request) {
 
 	l.visualizeBlkReadHitRate()
 	l.visualizeS3Visit()
+	l.visS3ObjectVisit()
 
 	if err := tmpl.Execute(w, l.renderData); err != nil {
 		fmt.Println(err.Error())
@@ -207,4 +220,57 @@ func (l *LogInfo) visualizeS3Visit() {
 		from.Labels = append(from.Labels, info.Timestamp.String())
 	}
 
+}
+
+func (l *LogInfo) visS3ObjectVisit() {
+	var s3Info []_type.LogInfoTable
+	for _, log := range l.logs {
+		if log.Message == "s3 object vis stats" {
+			s3Info = append(s3Info, log)
+		}
+	}
+
+	sort.Slice(s3Info, func(i, j int) bool {
+		return s3Info[i].Timestamp.Before(s3Info[j].Timestamp)
+	})
+
+	for _, info := range s3Info {
+		//if info.NodeType != "CN" {
+		//	continue
+		//}
+
+		data := make(map[string]interface{})
+		if err := json.Unmarshal([]byte(info.Extra), &data); err != nil {
+			fmt.Println(err.Error())
+			continue
+		}
+
+		if data["s3 put stats"].(string) == "" {
+			continue
+		}
+		putInfo := strings.Split(data["s3 put stats"].(string), ";")
+
+		for idx := range putInfo {
+			str := strings.Split(putInfo[idx], ", ")
+			// name, cnt, entry num, byte size
+			byteSize, _ := strconv.ParseFloat(str[3], 32)
+			entryNum, _ := strconv.ParseFloat(str[2], 32)
+			l.renderData.S3VisitDetail.S3Put.DataLens = append(l.renderData.S3VisitDetail.S3Put.DataLens, byteSize)
+			l.renderData.S3VisitDetail.S3Put.EntryNums = append(l.renderData.S3VisitDetail.S3Put.EntryNums, entryNum)
+			l.renderData.S3VisitDetail.S3Put.XLabels = append(l.renderData.S3VisitDetail.S3Put.XLabels, info.Timestamp.String())
+		}
+
+		if data["s3 get stats"].(string) == "" {
+			continue
+		}
+		getInfo := strings.Split(data["s3 get stats"].(string), ";")
+
+		for idx := range getInfo {
+			str := strings.Split(getInfo[idx], ", ")
+			//name, cnt, rowCnt
+			getCnt, _ := strconv.ParseFloat(str[1], 32)
+			l.renderData.S3VisitDetail.S3Get.GetNums = append(l.renderData.S3VisitDetail.S3Get.GetNums, getCnt)
+			l.renderData.S3VisitDetail.S3Get.Labels = append(l.renderData.S3VisitDetail.S3Get.Labels, str[0])
+		}
+	}
 }

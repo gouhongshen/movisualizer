@@ -22,6 +22,14 @@
     <canvas id="s3VisLineChart2" width="400" height="100"></canvas>
 </div>
 
+<div class="chart-container">>
+    <canvas id="dualAxisLineChart" width="400" height="100"></canvas>
+</div>
+
+<div class="chart-container">>
+    <canvas id="s3GetLineChart" width="400" height="100"></canvas>
+</div>
+
 <script>
     var dualLineConfig = {
         type: 'line',
@@ -146,6 +154,69 @@
 
     var s3VisLineCtx = document.getElementById('s3VisLineChart2').getContext('2d');
     new Chart(s3VisLineCtx, s3VisLineConfig);
+
+
+
+    var dualAxisLineConfig = {
+        type: 'line',
+        data: {
+            labels: {{.S3VisitDetail.S3Put.XLabels}},
+            datasets: [
+                {
+                    label: "data bytes",
+                    data: {{.S3VisitDetail.S3Put.DataLens}},
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1,
+                    yAxisID: 'y-axis-1'
+                },
+                {
+                    label: "row counts",
+                    data: {{.S3VisitDetail.S3Put.EntryNums}},
+                    borderColor: 'rgb(255, 99, 132)',
+                    tension: 0.1,
+                    yAxisID: 'y-axis-2'
+                }
+            ]
+        },
+        options: {
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    id: 'y-axis-1',
+                },
+                'y-axis-2': {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                }
+            }
+        }
+    };
+
+    var dualAxisLineCtx = document.getElementById('dualAxisLineChart').getContext('2d');
+    new Chart(dualAxisLineCtx, dualAxisLineConfig);
+
+
+
+    var lineCtx = document.getElementById('s3GetLineChart').getContext('2d');
+    var lineData = {
+        labels: {{ .S3VisitDetail.S3Get.Labels }},
+        datasets: [{
+        label: 'span info frequency accumulate',
+        data: {{ .S3VisitDetail.S3Get.GetNums }},
+        borderColor: 'rgb(75, 192, 192)',
+        tension: 0.1
+    }]
+    };
+    var myChart = new Chart(lineCtx, {
+        type: 'line',
+        data: lineData,
+    });
 
 
 </script>
