@@ -14,8 +14,14 @@
   <canvas id="lineChart" width="400" height="100"></canvas>
 </div>
 <div class="chart-container">
-  <canvas id="barChart" width="400" height="100"></canvas>
+  <canvas id="barChart_TopK" width="400" height="100"></canvas>
 </div>
+<div class="chart-container">
+  <canvas id="barChart_TopKRate" width="400" height="100"></canvas>
+</div>
+<!--<div class="chart-container">-->
+<!--  <canvas id="heatmap" width="400" height="400"></canvas>-->
+<!--</div>-->
 
 <script>
   var lineCtx = document.getElementById('lineChart').getContext('2d');
@@ -31,9 +37,19 @@
   var myChart = new Chart(lineCtx, {
     type: 'line',
     data: lineData,
+    options: {
+      scales: {
+        y: {
+          title: {
+            display: true,
+            text: '每个耗时区间的 span 的累积数量'
+          }
+        }
+      }
+    }
   });
 
-  var barCtx = document.getElementById('barChart').getContext('2d');
+  var barCtx = document.getElementById('barChart_TopK').getContext('2d');
   var barData = {
     labels: {{.TopKDuration.Labels}},
     datasets: [{
@@ -45,7 +61,70 @@
   new Chart(barCtx, {
     type: 'bar',
     data: barData,
+    options: {
+      scales: {
+        y: {
+          title: {
+            display: true,
+            text: '本次 span 的耗时'
+          }
+        }
+      }
+    }
   });
+
+  var barCtx = document.getElementById('barChart_TopKRate').getContext('2d');
+  var barData = {
+    labels: {{.TopKDurationAccRate.Labels}},
+  datasets: [{
+    label: "topk duration accumulate rate",
+    data: {{.TopKDurationAccRate.Data}},
+  backgroundColor: 'rgb(54, 162, 235)',
+  }]
+  };
+  new Chart(barCtx, {
+    type: 'bar',
+    data: barData,
+    options: {
+      scales: {
+        y: {
+          title: {
+            display: true,
+            text: '累积耗时占总耗时的比例'
+          }
+        }
+      }
+    }
+  });
+
+ // heat map
+
+  // var heatmapConfig = {
+  //   type: 'heatmap',
+  //   data: {
+  //     datasets: [{
+  //       data: {{ .Heatmap.Data }},
+  //       borderWidth: 1,
+  //     }]
+  //   },
+  //   options: {
+  //     responsive: true,
+  //     plugins: {
+  //       legend: false,
+  //     },
+  //     scales: {
+  //       x: {
+  //         type: 'linear',
+  //       },
+  //       y: {
+  //         type: 'linear',
+  //       }
+  //     },
+  //   }
+  // };
+  //
+  // var heatmapCtx = document.getElementById('heatmap').getContext('2d');
+  // new Chart(heatmapCtx, heatmapConfig);
 
 </script>
 </body>

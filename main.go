@@ -10,14 +10,14 @@ import (
 )
 
 func main() {
-	if !decodeArgs(os.Args) {
-		fillDefault()
-	}
+	decodeArgs(os.Args)
+	fillDefault()
 
 	defer release()
 
 	//http.HandleFunc("/", rootHandler)
 	http.HandleFunc("/span_info", script.VisSpanInfoHandler)
+	http.HandleFunc("/log_info", script.VisLogInfoHandler)
 	//http.HandleFunc("/option2", option2Handler)
 
 	fmt.Printf("Server started at :%s\n", _type.DstPort)
@@ -31,10 +31,26 @@ func release() {
 }
 
 func fillDefault() {
-	_type.DstPort = "11235"
-	_type.SrcPort = "6001"
-	_type.SrcHost = "127.0.0.1"
-	_type.SourceFile = ""
+	if _type.DstPort == "" {
+		_type.DstPort = "11235"
+	}
+
+	if _type.SrcPort == "" {
+		_type.SrcPort = "6001"
+	}
+
+	if _type.SrcHost == "" {
+		_type.SrcHost = "127.0.0.1"
+	}
+
+	if _type.SrcPassword == "" {
+		_type.SrcPassword = "111"
+	}
+
+	if _type.SrcUsrName == "" {
+		_type.SrcUsrName = "dump"
+	}
+
 }
 
 // type 1: -http=:dstPort -hSrcHost -PSrcPort -uSrcUsrName -pSrcPwd

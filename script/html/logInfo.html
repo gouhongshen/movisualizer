@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Number Frequency Chart</title>
+    <style>
+        .chart-container {
+            margin-bottom: 100px;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div class="chart-container">
+    <canvas id="blkReadLineChart" width="400" height="100"></canvas>
+</div>
+
+<div class="chart-container">
+    <canvas id="s3VisLineChart" width="400" height="100"></canvas>
+</div>
+
+<div class="chart-container">
+    <canvas id="s3VisLineChart2" width="400" height="100"></canvas>
+</div>
+
+<script>
+    var dualLineConfig = {
+        type: 'line',
+        data: {
+            labels: {{.BlkReadHit.Labels}},
+            datasets: [
+                {
+                    label: "blk hit rate",
+                    data: {{.BlkReadHit.BlkHitRate}},
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1
+                },
+                {
+                    label: "entry hit rate",
+                    data: {{.BlkReadHit.EntryHitRate}},
+                    borderColor: 'rgb(255, 99, 132)',
+                    tension: 0.1
+                }
+            ]
+        }
+    };
+
+    var dualLineCtx = document.getElementById('blkReadLineChart').getContext('2d');
+    new Chart(dualLineCtx, dualLineConfig);
+
+
+    // s3 vis from CN
+    var s3VisLineConfig = {
+        type: 'line',
+        data: {
+            labels: {{.S3Visit.FromCN.Labels}},
+            datasets: [
+                {
+                    label: "list",
+                    data: {{.S3Visit.FromCN.List}},
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1
+                },
+                {
+                    label: "put",
+                    data: {{.S3Visit.FromCN.Put}},
+                    borderColor: 'rgb(255, 99, 132)',
+                    tension: 0.1
+                },
+                {
+                    label: "get",
+                    data: {{.S3Visit.FromCN.Get}},
+                    borderColor: 'rgb(25, 99, 132)',
+                    tension: 0.1
+                },
+                {
+                    label: "head",
+                    data: {{.S3Visit.FromCN.Head}},
+                    borderColor: 'rgb(255, 119, 32)',
+                    tension: 0.1
+                },
+                {
+                    label: "delete",
+                    data: {{.S3Visit.FromCN.Delete}},
+                    borderColor: 'rgb(89, 255, 32)',
+                    tension: 0.1
+                },
+                {
+                    label: "delete-multi",
+                    data: {{.S3Visit.FromCN.DeleteMulti}},
+                    borderColor: 'rgb(100, 100, 132)',
+                    tension: 0.1
+                },
+            ]
+        }
+    };
+
+    var s3VisLineCtx = document.getElementById('s3VisLineChart').getContext('2d');
+    new Chart(s3VisLineCtx, s3VisLineConfig);
+
+
+    // s3 vis from DN
+    var s3VisLineConfig = {
+        type: 'line',
+        data: {
+            labels: {{.S3Visit.FromDN.Labels}},
+            datasets: [
+                {
+                    label: "list",
+                    data: {{.S3Visit.FromDN.List}},
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1
+                },
+                {
+                    label: "put",
+                    data: {{.S3Visit.FromDN.Put}},
+                    borderColor: 'rgb(255, 99, 132)',
+                    tension: 0.1
+                },
+                {
+                    label: "get",
+                    data: {{.S3Visit.FromDN.Get}},
+                    borderColor: 'rgb(25, 99, 132)',
+                    tension: 0.1
+                },
+                {
+                    label: "head",
+                    data: {{.S3Visit.FromDN.Head}},
+                    borderColor: 'rgb(255, 119, 32)',
+                    tension: 0.1
+                },
+                {
+                    label: "delete",
+                    data: {{.S3Visit.FromDN.Delete}},
+                    borderColor: 'rgb(89, 255, 32)',
+                    tension: 0.1
+                },
+                {
+                    label: "delete-multi",
+                    data: {{.S3Visit.FromDN.DeleteMulti}},
+                    borderColor: 'rgb(100, 100, 132)',
+                    tension: 0.1
+                },
+            ]
+        }
+    };
+
+    var s3VisLineCtx = document.getElementById('s3VisLineChart2').getContext('2d');
+    new Chart(s3VisLineCtx, s3VisLineConfig);
+
+
+</script>
+
+</body>
+</html>
