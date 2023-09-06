@@ -234,10 +234,19 @@ func (l *LogInfo) visS3ObjectVisit() {
 		return s3Info[i].Timestamp.Before(s3Info[j].Timestamp)
 	})
 
+	layout := "2006-01-02 15:04:05.000000 -0700 MST"
+	start, _ := time.Parse(layout, "2023-08-31 03:11:00.000000 +0800 CST")
+	end, _ := time.Parse(layout, "2023-08-31 03:32:00.000000 +0800 CST")
+
+	//s3PutInTPCC := 0
 	for _, info := range s3Info {
-		//if info.NodeType != "CN" {
-		//	continue
-		//}
+		if info.NodeType != "CN" {
+			continue
+		}
+
+		if info.Timestamp.After(end) {
+			continue
+		}
 
 		data := make(map[string]interface{})
 		if err := json.Unmarshal([]byte(info.Extra), &data); err != nil {
@@ -245,32 +254,84 @@ func (l *LogInfo) visS3ObjectVisit() {
 			continue
 		}
 
-		if data["s3 put stats"].(string) == "" {
-			continue
-		}
 		putInfo := strings.Split(data["s3 put stats"].(string), ";")
 
 		for idx := range putInfo {
 			str := strings.Split(putInfo[idx], ", ")
+			if len(str) < 4 {
+				continue
+			}
 			// name, cnt, entry num, byte size
 			byteSize, _ := strconv.ParseFloat(str[3], 32)
 			entryNum, _ := strconv.ParseFloat(str[2], 32)
 			l.renderData.S3VisitDetail.S3Put.DataLens = append(l.renderData.S3VisitDetail.S3Put.DataLens, byteSize)
 			l.renderData.S3VisitDetail.S3Put.EntryNums = append(l.renderData.S3VisitDetail.S3Put.EntryNums, entryNum)
 			l.renderData.S3VisitDetail.S3Put.XLabels = append(l.renderData.S3VisitDetail.S3Put.XLabels, info.Timestamp.String())
+
+			//if info.Timestamp.After(time.P)
+		}
+	}
+	// 0~1K, 1K ~ 10K, 10K ~ 100K, 100K ~ 1000K
+	records := make(map[int]int)
+	total := len(l.renderData.S3VisitDetail.S3Put.DataLens)
+	for _, val := range l.renderData.S3VisitDetail.S3Put.DataLens {
+		x := int(val / 1024.0)
+		if x == 0 {
+			records[0]++
+		} else if x >= 1 && x < 10 {
+			records[1]++
+		} else if x >= 10 && x < 100 {
+			records[2]++
+		} else if x >= 100 && x < 1000 {
+			records[3]++
+		} else {
+			records[4]++
 		}
 
-		if data["s3 get stats"].(string) == "" {
+	}
+
+	for idx, v := range records {
+		str := []string{
+			"0K~1K", "1K~10K", "10K~100K", "100K~1000K", ">=1M",
+		}
+		fmt.Printf("%s: %.2f%s\n", str[idx], float32(v)/float32(total)*100, "%")
+	}
+
+	tmp := make(map[string]float64)
+	for _, info := range s3Info {
+		if info.NodeType != "CN" {
 			continue
 		}
+
+		if info.Timestamp.After(end) || info.Timestamp.Before(start) {
+			continue
+		}
+
+		data := make(map[string]interface{})
+		if err := json.Unmarshal([]byte(info.Extra), &data); err != nil {
+			fmt.Println(err.Error())
+			continue
+		}
+
 		getInfo := strings.Split(data["s3 get stats"].(string), ";")
 
 		for idx := range getInfo {
 			str := strings.Split(getInfo[idx], ", ")
+			if len(str) < 3 {
+				continue
+			}
 			//name, cnt, rowCnt
 			getCnt, _ := strconv.ParseFloat(str[1], 32)
-			l.renderData.S3VisitDetail.S3Get.GetNums = append(l.renderData.S3VisitDetail.S3Get.GetNums, getCnt)
-			l.renderData.S3VisitDetail.S3Get.Labels = append(l.renderData.S3VisitDetail.S3Get.Labels, str[0])
+			tmp[str[0]] += getCnt
 		}
+	}
+
+	for idx, _ := range tmp {
+		if strings.HasSuffix(idx, ".csv") {
+			continue
+		}
+
+		l.renderData.S3VisitDetail.S3Get.GetNums = append(l.renderData.S3VisitDetail.S3Get.GetNums, tmp[idx])
+		l.renderData.S3VisitDetail.S3Get.Labels = append(l.renderData.S3VisitDetail.S3Get.Labels, idx)
 	}
 }

@@ -1,16 +1,15 @@
 package script
 
 import (
+	"encoding/json"
 	"fmt"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"html/template"
 	"log"
-	"math"
 	"net/http"
 	"os"
 	"sort"
-	"strconv"
 	"time"
 	_type "visualization/type"
 )
@@ -20,20 +19,19 @@ type SpanInfo struct {
 	infos     []_type.SpanInfoTable
 
 	renderData struct {
-		Accumulate struct {
-			Labels []int
-			Data   []int
-		}
-		TopKDurationAccRate struct {
-			Labels []string
-			Data   []float32
-		}
-		TopKDuration struct {
-			Labels []string
-			Data   []int64
-		}
-		Heatmap struct {
-			Data string
+		LocalFSOperation struct {
+			ObjVisFrequency struct {
+				Labels []string
+				Data   []float64
+			}
+			DataSizeTotal struct {
+				Labels []string
+				Data   []float64
+			}
+			FrequencyByDuration struct {
+				Labels []int
+				Data   []int64
+			}
 		}
 	}
 }
@@ -66,8 +64,6 @@ func (s *SpanInfo) visualizeByReadDB(w http.ResponseWriter, req *http.Request) {
 		s.infos = make([]_type.SpanInfoTable, 0)
 	}
 
-	s.spanSrcDB.Table("span_info").Find(&s.infos)
-
 	s.visualize(w, req)
 }
 
@@ -76,7 +72,6 @@ func (s *SpanInfo) visBySourceFile(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *SpanInfo) visualize(w http.ResponseWriter, req *http.Request) {
-
 	wd, _ := os.Getwd()
 	tmpl, err := template.ParseFiles(wd + "/script/html/spanInfo.html")
 	if err != nil {
@@ -84,136 +79,123 @@ func (s *SpanInfo) visualize(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	//var tmplData renderData
-	s.visualizeDurAccumulate()
-	s.visualizeTopKDuration(30)
-	s.visualizeTopKDurationAccumulateRate(10)
-	s.visHeatmap()
+	s.visLocalFSOperation()
 
 	if err := tmpl.Execute(w, s.renderData); err != nil {
 		fmt.Println(err.Error())
 	}
 }
 
-func (s *SpanInfo) visHeatmap() {
-	//for i := 0; i < 100; i++ {
-	//	tmplData.Heatmap.Data[i][0] = i
-	//	tmplData.Heatmap.Data[i][1] = i * 2
-	//	tmplData.Heatmap.Data[i][2] = rand.Int() % 100
-	//}
-	s.renderData.Heatmap.Data = "[[0, 0, 5], [1, 0, 12], [2, 0, 20]]"
+func (s *SpanInfo) visLocalFSOperation() {
+	var infos []_type.SpanInfoTable
+	s.spanSrcDB.Table("span_info").Where("span_kind='localFSOperation'").Find(&infos)
+
+	s.visLocalFSOperation_ObjVisFrequency(infos)
+	s.visLocalFSOperation_ObjDataSize(infos)
+	s.visLocalFSOperation_DurationFrequency(infos)
 }
 
-func (s *SpanInfo) visualizeDurAccumulate() {
-	data := make(map[int]int)
-	for _, info := range s.infos {
-		cur := info.Duration / int64(time.Millisecond)
-		data[int(math.Ceil(float64(cur)/100.0)*100)]++
-	}
-
-	labels := make([]int, 0)
-	freqData := make([]int, 0)
-	cum := 0
-	keys := []int{0}
-	for key, _ := range data {
-		keys = append(keys, key)
-	}
-	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
-
-	for _, key := range keys {
-		labels = append(labels, key)
-		freqData = append(freqData, data[key]+cum)
-		cum += data[key]
-	}
-
-	s.renderData.Accumulate.Data = freqData
-	s.renderData.Accumulate.Labels = labels
-}
-
-func (s *SpanInfo) visualizeTopKDuration(topK int) {
-	sort.Slice(s.infos, func(i, j int) bool {
-		return s.infos[i].Duration > s.infos[j].Duration
+func (s *SpanInfo) visLocalFSOperation_DurationFrequency(infos []_type.SpanInfoTable) {
+	sort.Slice(infos, func(i, j int) bool {
+		return infos[i].EndTime.Before(infos[j].EndTime)
 	})
 
-	var labels []string
-	var duration []int64
-
-	filter := map[string]struct{}{
-		"RoutineManager.Handler":             {},
-		"batchETLHandler":                    {},
-		"QueryStorage.getNewAccounts":        {},
-		"QueryStorageStorage.getNewAccounts": {},
+	cntByDuration := make([]int64, 1)
+	sec := 0
+	last := infos[0].EndTime
+	for idx, _ := range infos {
+		if infos[idx].EndTime.Sub(last) <= time.Second {
+			cntByDuration[sec]++
+		} else {
+			cntByDuration = append(cntByDuration, 0)
+			sec++
+			last = infos[idx].EndTime
+			cntByDuration[sec]++
+		}
 	}
 
-	cnt := 0
-	for i := 0; i < len(s.infos) && cnt < topK; i++ {
-		if _, ok := filter[s.infos[i].SpanName]; ok {
+	for idx, cnt := range cntByDuration {
+		s.renderData.LocalFSOperation.FrequencyByDuration.Labels =
+			append(s.renderData.LocalFSOperation.FrequencyByDuration.Labels, idx)
+		s.renderData.LocalFSOperation.FrequencyByDuration.Data =
+			append(s.renderData.LocalFSOperation.FrequencyByDuration.Data, cnt)
+	}
+
+}
+
+func (s *SpanInfo) visLocalFSOperation_ObjDataSize(infos []_type.SpanInfoTable) {
+	var objName []string
+	name2Size := make(map[string]float64)
+
+	for idx, _ := range infos {
+		var data map[string]interface{}
+		if err := json.Unmarshal([]byte(infos[idx].Extra), &data); err != nil {
+			fmt.Println(fmt.Errorf("json unmarsh extra failed"))
+		}
+
+		if len(data) == 0 {
 			continue
 		}
-		labels = append(labels, s.infos[i].NodeType+"->"+s.infos[i].SpanName)
-		duration = append(duration, s.infos[i].Duration/int64(time.Millisecond))
+
+		name := data["name"].(string)
+		size := data["size"].(float64)
+		_, ok := name2Size[name]
+		// each read bytes could be different for a same object
+		name2Size[name] += size
+
+		if !ok {
+			objName = append(objName, data["name"].(string))
+		}
+	}
+
+	sort.Slice(objName, func(i, j int) bool {
+		return name2Size[objName[i]] > name2Size[objName[j]]
+	})
+
+	for idx, _ := range objName {
+		s.renderData.LocalFSOperation.DataSizeTotal.Labels =
+			append(s.renderData.LocalFSOperation.DataSizeTotal.Labels, objName[idx])
+		s.renderData.LocalFSOperation.DataSizeTotal.Data =
+			append(s.renderData.LocalFSOperation.DataSizeTotal.Data, name2Size[objName[idx]])
+	}
+
+}
+
+func (s *SpanInfo) visLocalFSOperation_ObjVisFrequency(infos []_type.SpanInfoTable) {
+	var objName []string
+	name2Cnt := make(map[string]float64)
+
+	cnt := 0
+	for idx, _ := range infos {
+		var data map[string]interface{}
+		if err := json.Unmarshal([]byte(infos[idx].Extra), &data); err != nil {
+			fmt.Println(fmt.Errorf("json unmarsh extra failed"))
+		}
+
+		if len(data) == 0 {
+			continue
+		}
+
+		name := data["name"].(string)
+		_, ok := name2Cnt[name]
+		name2Cnt[name]++
+
+		if !ok {
+			objName = append(objName, data["name"].(string))
+		}
 		cnt++
 	}
 
-	s.renderData.TopKDuration.Data = duration
-	s.renderData.TopKDuration.Labels = labels
-}
-
-func (s *SpanInfo) visualizeTopKDurationAccumulateRate(topK int) {
-	sort.Slice(s.infos, func(i, j int) bool {
-		return s.infos[i].SpanName < s.infos[j].SpanName
+	sort.Slice(objName, func(i, j int) bool {
+		return name2Cnt[objName[i]] > name2Cnt[objName[j]]
 	})
 
-	data := make([]struct {
-		spanName    string
-		accDuration int64
-		cnt         int
-	}, len(s.infos))
-
-	filter := map[string]struct{}{
-		"RoutineManager.Handler":             {},
-		"batchETLHandler":                    {},
-		"QueryStorage.getNewAccounts":        {},
-		"QueryStorageStorage.getNewAccounts": {},
+	for idx, _ := range objName {
+		s.renderData.LocalFSOperation.ObjVisFrequency.Labels =
+			append(s.renderData.LocalFSOperation.ObjVisFrequency.Labels, objName[idx])
+		s.renderData.LocalFSOperation.ObjVisFrequency.Data =
+			append(s.renderData.LocalFSOperation.ObjVisFrequency.Data, name2Cnt[objName[idx]])
 	}
 
-	totalDur, idx, i, j := int64(0), 0, 0, 0
-	for {
-		data[idx].spanName = s.infos[i].SpanName
-		for j < len(s.infos) && s.infos[i].SpanName == s.infos[j].SpanName {
-			if _, ok := filter[s.infos[j].SpanName]; !ok {
-				totalDur += s.infos[j].Duration
-			}
-			data[idx].accDuration += s.infos[j].Duration
-			j++
-			data[idx].cnt++
-		}
-
-		if j >= len(s.infos) {
-			break
-		}
-
-		i = j
-		idx++
-	}
-
-	sort.Slice(data, func(i, j int) bool {
-		return data[i].accDuration > data[j].accDuration
-	})
-
-	var labels []string
-	var rate []float32
-
-	idx = 0
-	for i = 0; i < len(data) && idx < topK; i++ {
-		if _, ok := filter[data[i].spanName]; ok {
-			continue
-		}
-		labels = append(labels, data[i].spanName+": "+strconv.Itoa(data[i].cnt))
-		rate = append(rate, float32(data[i].accDuration)/float32(totalDur))
-		idx++
-	}
-
-	s.renderData.TopKDurationAccRate.Data = rate
-	s.renderData.TopKDurationAccRate.Labels = labels
+	fmt.Println(cnt)
 }

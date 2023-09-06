@@ -13,23 +13,22 @@
 <div class="chart-container">
   <canvas id="lineChart" width="400" height="100"></canvas>
 </div>
+
 <div class="chart-container">
-  <canvas id="barChart_TopK" width="400" height="100"></canvas>
+  <canvas id="lineChart2" width="400" height="100"></canvas>
 </div>
+
 <div class="chart-container">
-  <canvas id="barChart_TopKRate" width="400" height="100"></canvas>
+  <canvas id="lineChart3" width="400" height="100"></canvas>
 </div>
-<!--<div class="chart-container">-->
-<!--  <canvas id="heatmap" width="400" height="400"></canvas>-->
-<!--</div>-->
 
 <script>
   var lineCtx = document.getElementById('lineChart').getContext('2d');
   var lineData = {
-    labels: {{ .Accumulate.Labels }},
+    labels: {{ .LocalFSOperation.ObjVisFrequency.Labels }},
     datasets: [{
-      label: 'span info frequency accumulate',
-      data: {{ .Accumulate.Data }},
+      label: 'object 访问频率',
+      data: {{ .LocalFSOperation.ObjVisFrequency.Data }},
       borderColor: 'rgb(75, 192, 192)',
           tension: 0.1
     }]
@@ -42,89 +41,62 @@
         y: {
           title: {
             display: true,
-            text: '每个耗时区间的 span 的累积数量'
+            text: 'object 访问数量'
           }
         }
       }
     }
   });
 
-  var barCtx = document.getElementById('barChart_TopK').getContext('2d');
-  var barData = {
-    labels: {{.TopKDuration.Labels}},
-    datasets: [{
-      label: "topk duration",
-      data: {{.TopKDuration.Data}},
-      backgroundColor: 'rgb(54, 162, 235)',
-    }]
-  };
-  new Chart(barCtx, {
-    type: 'bar',
-    data: barData,
-    options: {
-      scales: {
-        y: {
-          title: {
-            display: true,
-            text: '本次 span 的耗时'
-          }
-        }
-      }
-    }
-  });
-
-  var barCtx = document.getElementById('barChart_TopKRate').getContext('2d');
-  var barData = {
-    labels: {{.TopKDurationAccRate.Labels}},
+  var lineCtx = document.getElementById('lineChart2').getContext('2d');
+  var lineData = {
+    labels: {{ .LocalFSOperation.DataSizeTotal.Labels }},
   datasets: [{
-    label: "topk duration accumulate rate",
-    data: {{.TopKDurationAccRate.Data}},
-  backgroundColor: 'rgb(54, 162, 235)',
+    label: 'object 数据量',
+    data: {{ .LocalFSOperation.DataSizeTotal.Data }},
+  borderColor: 'rgb(75, 192, 192)',
+          tension: 0.1
   }]
   };
-  new Chart(barCtx, {
-    type: 'bar',
-    data: barData,
+  var myChart = new Chart(lineCtx, {
+    type: 'line',
+    data: lineData,
     options: {
       scales: {
         y: {
           title: {
             display: true,
-            text: '累积耗时占总耗时的比例'
+            text: 'object 访问的数据量总和'
           }
         }
       }
     }
   });
 
- // heat map
-
-  // var heatmapConfig = {
-  //   type: 'heatmap',
-  //   data: {
-  //     datasets: [{
-  //       data: {{ .Heatmap.Data }},
-  //       borderWidth: 1,
-  //     }]
-  //   },
-  //   options: {
-  //     responsive: true,
-  //     plugins: {
-  //       legend: false,
-  //     },
-  //     scales: {
-  //       x: {
-  //         type: 'linear',
-  //       },
-  //       y: {
-  //         type: 'linear',
-  //       }
-  //     },
-  //   }
-  // };
-  //
-  // var heatmapCtx = document.getElementById('heatmap').getContext('2d');
-  // new Chart(heatmapCtx, heatmapConfig);
+  var lineCtx = document.getElementById('lineChart3').getContext('2d');
+  var lineData = {
+    labels: {{ .LocalFSOperation.FrequencyByDuration.Labels }},
+  datasets: [{
+    label: 'object 访问量',
+    data: {{ .LocalFSOperation.FrequencyByDuration.Data }},
+  borderColor: 'rgb(75, 192, 192)',
+          tension: 0.1
+  }]
+  };
+  var myChart = new Chart(lineCtx, {
+    type: 'line',
+    data: lineData,
+    options: {
+      scales: {
+        y: {
+          title: {
+            display: true,
+            text: 'object 数量'
+          }
+        }
+      }
+    }
+  });
 
 </script>
 </body>

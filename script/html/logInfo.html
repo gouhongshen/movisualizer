@@ -14,21 +14,7 @@
     <canvas id="blkReadLineChart" width="400" height="100"></canvas>
 </div>
 
-<div class="chart-container">
-    <canvas id="s3VisLineChart" width="400" height="100"></canvas>
-</div>
 
-<div class="chart-container">
-    <canvas id="s3VisLineChart2" width="400" height="100"></canvas>
-</div>
-
-<div class="chart-container">>
-    <canvas id="dualAxisLineChart" width="400" height="100"></canvas>
-</div>
-
-<div class="chart-container">>
-    <canvas id="s3GetLineChart" width="400" height="100"></canvas>
-</div>
 
 <script>
     var dualLineConfig = {
@@ -207,7 +193,7 @@
     var lineData = {
         labels: {{ .S3VisitDetail.S3Get.Labels }},
         datasets: [{
-        label: 'span info frequency accumulate',
+        label: 's3 get num',
         data: {{ .S3VisitDetail.S3Get.GetNums }},
         borderColor: 'rgb(75, 192, 192)',
         tension: 0.1

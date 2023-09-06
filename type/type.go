@@ -21,9 +21,10 @@ type SpanInfoTable struct {
 	SpanName     string    `gorm:"column:span_name"`
 	StartTime    time.Time `gorm:"column:start_time"`
 	EndTime      time.Time `gorm:"column:end_time"`
-	Duration     int64     `gorm:"column:duration"`
-	Resource     string    `gorm:"column:resource"`
-	Extra        string    `gorm:"column:extra"`
+	// nanoseconds
+	Duration int64  `gorm:"column:duration"`
+	Resource string `gorm:"column:resource"`
+	Extra    string `gorm:"column:extra"`
 }
 
 type LogInfoTable struct {
