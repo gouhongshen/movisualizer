@@ -85,7 +85,7 @@ func (l *LogInfo) visualizeLogInfoByReadDB(w http.ResponseWriter, req *http.Requ
 		l.logs = make([]_type.LogInfoTable, 0)
 	}
 
-	l.logSrcDB.Table("log_info").Find(&l.logs)
+	//l.logSrcDB.Table("log_info").Find(&l.logs)
 }
 
 func (l *LogInfo) visualizeLogInfoBySourceFile(w http.ResponseWriter, req *http.Request) {
@@ -139,8 +139,11 @@ func (l *LogInfo) visualize(w http.ResponseWriter, req *http.Request) {
 }
 
 func (l *LogInfo) visualizeBlkReadHitRate() {
+	var logs []_type.LogInfoTable
+	l.logSrcDB.Table("log_info").Where("message='block read stats'").Find(&logs)
+
 	var blkInfo []_type.LogInfoTable
-	for _, log := range l.logs {
+	for _, log := range logs {
 		if log.Message == "block read stats" {
 			blkInfo = append(blkInfo, log)
 		}
@@ -179,6 +182,9 @@ func (l *LogInfo) visualizeBlkReadHitRate() {
 }
 
 func (l *LogInfo) visualizeS3Visit() {
+	var logs []_type.LogInfoTable
+	l.logSrcDB.Table("log_info").Where("message='s3 vis stats'").Find(&logs)
+
 	var s3Info []_type.LogInfoTable
 	for _, log := range l.logs {
 		if log.Message == "s3 vis stats" {
@@ -223,6 +229,9 @@ func (l *LogInfo) visualizeS3Visit() {
 }
 
 func (l *LogInfo) visS3ObjectVisit() {
+	var logs []_type.LogInfoTable
+	l.logSrcDB.Table("log_info").Where("message='s3 object vis stats'").Find(&logs)
+
 	var s3Info []_type.LogInfoTable
 	for _, log := range l.logs {
 		if log.Message == "s3 object vis stats" {

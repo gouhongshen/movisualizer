@@ -22,13 +22,17 @@
   <canvas id="lineChart3" width="400" height="100"></canvas>
 </div>
 
+<div class="chart-container">
+  <canvas id="lineChart4" width="400" height="100"></canvas>
+</div>
+
 <script>
   var lineCtx = document.getElementById('lineChart').getContext('2d');
   var lineData = {
-    labels: {{ .LocalFSOperation.ObjVisFrequency.Labels }},
+    labels: {{ .ObjVisFrequency.Labels }},
     datasets: [{
       label: 'object 访问频率',
-      data: {{ .LocalFSOperation.ObjVisFrequency.Data }},
+      data: {{ .ObjVisFrequency.Data }},
       borderColor: 'rgb(75, 192, 192)',
           tension: 0.1
     }]
@@ -50,10 +54,10 @@
 
   var lineCtx = document.getElementById('lineChart2').getContext('2d');
   var lineData = {
-    labels: {{ .LocalFSOperation.DataSizeTotal.Labels }},
+    labels: {{ .DataSizeTotal.Labels }},
   datasets: [{
     label: 'object 数据量',
-    data: {{ .LocalFSOperation.DataSizeTotal.Data }},
+    data: {{ .DataSizeTotal.Data }},
   borderColor: 'rgb(75, 192, 192)',
           tension: 0.1
   }]
@@ -75,10 +79,10 @@
 
   var lineCtx = document.getElementById('lineChart3').getContext('2d');
   var lineData = {
-    labels: {{ .LocalFSOperation.FrequencyByDuration.Labels }},
+    labels: {{ .FrequencyByDuration.Labels }},
   datasets: [{
     label: 'object 访问量',
-    data: {{ .LocalFSOperation.FrequencyByDuration.Data }},
+    data: {{ .FrequencyByDuration.Data }},
   borderColor: 'rgb(75, 192, 192)',
           tension: 0.1
   }]
@@ -92,6 +96,33 @@
           title: {
             display: true,
             text: 'object 数量'
+          }
+        }
+      }
+    }
+  });
+
+
+
+  var lineCtx = document.getElementById('lineChart4').getContext('2d');
+  var lineData = {
+    labels: {{ .DurationDistribution.Labels }},
+  datasets: [{
+    label: 'object s3 访问时延',
+    data: {{ .DurationDistribution.Data }},
+  borderColor: 'rgb(75, 192, 192)',
+          tension: 0.1
+  }]
+  };
+  var myChart = new Chart(lineCtx, {
+    type: 'line',
+    data: lineData,
+    options: {
+      scales: {
+        y: {
+          title: {
+            display: true,
+            text: 'object latency'
           }
         }
       }

@@ -14,27 +14,55 @@ import (
 	_type "visualization/type"
 )
 
-type SpanInfo struct {
-	spanSrcDB *gorm.DB
-	infos     []_type.SpanInfoTable
-
-	renderData struct {
-		LocalFSOperation struct {
-			ObjVisFrequency struct {
-				Labels []string
-				Data   []float64
-			}
-			DataSizeTotal struct {
-				Labels []string
-				Data   []float64
-			}
-			FrequencyByDuration struct {
-				Labels []int
-				Data   []int64
-			}
-		}
+var PageData struct {
+	ObjVisFrequency struct {
+		Labels []string
+		Data   []float64
+	}
+	DataSizeTotal struct {
+		Labels []string
+		Data   []float64
+	}
+	FrequencyByDuration struct {
+		Labels []string
+		Data   []int64
+	}
+	DurationDistribution struct {
+		Labels []string
+		Data   []int64
 	}
 }
+
+type SpanInfo struct {
+	spanSrcDB *gorm.DB
+	//infos     []_type.SpanInfoTable
+	//
+	//renderData struct {
+	//	LocalFSOperation, S3FSOperation struct {
+	//		ObjVisFrequency struct {
+	//			Labels []string
+	//			Data   []float64
+	//		}
+	//		DataSizeTotal struct {
+	//			Labels []string
+	//			Data   []float64
+	//		}
+	//		FrequencyByDuration struct {
+	//			Labels []int
+	//			Data   []int64
+	//		}
+	//		DurationDistribution struct {
+	//			Labels []string
+	//			Data   []int64
+	//		}
+	//	}
+	//}
+}
+
+const (
+	S3FSOperation    int = 0
+	LocalFSOperation int = 1
+)
 
 var spanInfo *SpanInfo
 
@@ -61,7 +89,7 @@ func (s *SpanInfo) visualizeByReadDB(w http.ResponseWriter, req *http.Request) {
 		}
 		s.spanSrcDB = db
 	} else {
-		s.infos = make([]_type.SpanInfoTable, 0)
+		//s.infos = make([]_type.SpanInfoTable, 0)
 	}
 
 	s.visualize(w, req)
@@ -79,51 +107,77 @@ func (s *SpanInfo) visualize(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	s.visLocalFSOperation()
+	//s.visLocalFSOperation()
+	s.visS3FSOperation()
 
-	if err := tmpl.Execute(w, s.renderData); err != nil {
+	if err := tmpl.Execute(w, PageData); err != nil {
 		fmt.Println(err.Error())
 	}
+}
+
+func (s *SpanInfo) visS3FSOperation() {
+	var infos []_type.SpanInfoTable
+	s.spanSrcDB.Table("span_info").Where("span_kind='s3FSOperation'").Find(&infos)
+
+	s.visObjVisFrequency(infos, S3FSOperation)
+	s.visObjDataSize(infos, S3FSOperation)
+	s.visDurationFrequency(infos, S3FSOperation)
+	s.visDurationDistribution(infos, S3FSOperation)
+
 }
 
 func (s *SpanInfo) visLocalFSOperation() {
 	var infos []_type.SpanInfoTable
 	s.spanSrcDB.Table("span_info").Where("span_kind='localFSOperation'").Find(&infos)
 
-	s.visLocalFSOperation_ObjVisFrequency(infos)
-	s.visLocalFSOperation_ObjDataSize(infos)
-	s.visLocalFSOperation_DurationFrequency(infos)
+	s.visObjVisFrequency(infos, LocalFSOperation)
+	s.visObjDataSize(infos, LocalFSOperation)
+	s.visDurationFrequency(infos, LocalFSOperation)
 }
 
-func (s *SpanInfo) visLocalFSOperation_DurationFrequency(infos []_type.SpanInfoTable) {
+func (s *SpanInfo) visDurationFrequency(infos []_type.SpanInfoTable, t int) {
 	sort.Slice(infos, func(i, j int) bool {
 		return infos[i].EndTime.Before(infos[j].EndTime)
 	})
 
-	cntByDuration := make([]int64, 1)
-	sec := 0
+	var condition string
+	if t == S3FSOperation {
+		condition = "S3FS.read"
+	} else {
+		condition = "LocalFS.read"
+	}
+
+	var cntByDuration []int64
+	var endTime []string
+	//sec := 0
 	last := infos[0].EndTime
-	for idx, _ := range infos {
-		if infos[idx].EndTime.Sub(last) <= time.Second {
-			cntByDuration[sec]++
-		} else {
-			cntByDuration = append(cntByDuration, 0)
-			sec++
-			last = infos[idx].EndTime
-			cntByDuration[sec]++
+
+	idx := 0
+	for idx < len(infos) {
+		cnt := int64(0)
+		for idx < len(infos) && infos[idx].EndTime.Sub(last) <= time.Second {
+			if infos[idx].SpanName == condition {
+				cnt++
+			}
+			idx++
 		}
+
+		if idx < len(infos) {
+			last = infos[idx].EndTime
+		}
+
+		endTime = append(endTime, infos[idx-1].EndTime.String())
+		cntByDuration = append(cntByDuration, cnt)
 	}
 
 	for idx, cnt := range cntByDuration {
-		s.renderData.LocalFSOperation.FrequencyByDuration.Labels =
-			append(s.renderData.LocalFSOperation.FrequencyByDuration.Labels, idx)
-		s.renderData.LocalFSOperation.FrequencyByDuration.Data =
-			append(s.renderData.LocalFSOperation.FrequencyByDuration.Data, cnt)
+		PageData.FrequencyByDuration.Labels = append(PageData.FrequencyByDuration.Labels, endTime[idx])
+		PageData.FrequencyByDuration.Data = append(PageData.FrequencyByDuration.Data, cnt)
 	}
 
 }
 
-func (s *SpanInfo) visLocalFSOperation_ObjDataSize(infos []_type.SpanInfoTable) {
+func (s *SpanInfo) visObjDataSize(infos []_type.SpanInfoTable, t int) {
 	var objName []string
 	name2Size := make(map[string]float64)
 
@@ -153,15 +207,13 @@ func (s *SpanInfo) visLocalFSOperation_ObjDataSize(infos []_type.SpanInfoTable) 
 	})
 
 	for idx, _ := range objName {
-		s.renderData.LocalFSOperation.DataSizeTotal.Labels =
-			append(s.renderData.LocalFSOperation.DataSizeTotal.Labels, objName[idx])
-		s.renderData.LocalFSOperation.DataSizeTotal.Data =
-			append(s.renderData.LocalFSOperation.DataSizeTotal.Data, name2Size[objName[idx]])
+		PageData.DataSizeTotal.Labels = append(PageData.DataSizeTotal.Labels, objName[idx])
+		PageData.DataSizeTotal.Data = append(PageData.DataSizeTotal.Data, name2Size[objName[idx]])
 	}
 
 }
 
-func (s *SpanInfo) visLocalFSOperation_ObjVisFrequency(infos []_type.SpanInfoTable) {
+func (s *SpanInfo) visObjVisFrequency(infos []_type.SpanInfoTable, t int) {
 	var objName []string
 	name2Cnt := make(map[string]float64)
 
@@ -191,11 +243,32 @@ func (s *SpanInfo) visLocalFSOperation_ObjVisFrequency(infos []_type.SpanInfoTab
 	})
 
 	for idx, _ := range objName {
-		s.renderData.LocalFSOperation.ObjVisFrequency.Labels =
-			append(s.renderData.LocalFSOperation.ObjVisFrequency.Labels, objName[idx])
-		s.renderData.LocalFSOperation.ObjVisFrequency.Data =
-			append(s.renderData.LocalFSOperation.ObjVisFrequency.Data, name2Cnt[objName[idx]])
+		PageData.ObjVisFrequency.Labels = append(PageData.ObjVisFrequency.Labels, objName[idx])
+		PageData.ObjVisFrequency.Data = append(PageData.ObjVisFrequency.Data, name2Cnt[objName[idx]])
 	}
 
 	fmt.Println(cnt)
+}
+
+func (s *SpanInfo) visDurationDistribution(infos []_type.SpanInfoTable, t int) {
+	sort.Slice(infos, func(i, j int) bool {
+		return infos[i].EndTime.Before(infos[j].EndTime)
+	})
+
+	var condition string
+	if t == S3FSOperation {
+		condition = "S3FS.read"
+	} else {
+		condition = "LocalFS.read"
+	}
+
+	for idx, _ := range infos {
+		if infos[idx].SpanName != condition {
+			continue
+		}
+
+		PageData.DurationDistribution.Labels = append(PageData.DurationDistribution.Labels, infos[idx].EndTime.String())
+		PageData.DurationDistribution.Data = append(PageData.DurationDistribution.Data, infos[idx].Duration)
+	}
+
 }
